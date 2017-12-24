@@ -131,13 +131,15 @@ impl<T, CHANNEL> Buffer<T, CHANNEL> {
     ///
     /// Panics if the value is currently mutably borrowed.
     pub fn borrow(&self) -> Ref<T> {
-        assert_ne!(self.flag.get(), WRITING);
+        unsafe {
+            assert_ne!(self.flag.get(), WRITING);
 
-        self.flag.set(self.flag.get() + 1);
+            self.flag.set(self.flag.get() + 1);
 
-        Ref {
-            data: unsafe { &*self.data.get() },
-            flag: &self.flag,
+            Ref {
+                data: &*self.data.get(),
+                flag: &self.flag,
+            }
         }
     }
 
@@ -150,31 +152,37 @@ impl<T, CHANNEL> Buffer<T, CHANNEL> {
     ///
     /// Panics if the value is currently borrowed.
     pub fn borrow_mut(&self) -> RefMut<T> {
-        assert_eq!(self.flag.get(), UNUSED);
+        unsafe {
+            assert_eq!(self.flag.get(), UNUSED);
 
-        self.flag.set(WRITING);
+            self.flag.set(WRITING);
 
-        RefMut {
-            data: unsafe { &mut *self.data.get() },
-            flag: &self.flag,
+            RefMut {
+                data: &mut *self.data.get(),
+                flag: &self.flag,
+            }
         }
     }
 
     pub(crate) fn lock(&self) -> &T {
-        assert_eq!(self.state.get(), State::Unlocked);
-        assert_ne!(self.flag.get(), WRITING);
+        unsafe {
+            assert_eq!(self.state.get(), State::Unlocked);
+            assert_ne!(self.flag.get(), WRITING);
 
-        self.flag.set(self.flag.get() + 1);
+            self.flag.set(self.flag.get() + 1);
+        }
         self.state.set(State::Locked);
 
         unsafe { &*self.data.get() }
     }
 
     pub(crate) fn lock_mut(&self) -> &mut T {
-        assert_eq!(self.state.get(), State::Unlocked);
-        assert_eq!(self.flag.get(), UNUSED);
+        unsafe {
+            assert_eq!(self.state.get(), State::Unlocked);
+            assert_eq!(self.flag.get(), UNUSED);
 
-        self.flag.set(WRITING);
+            self.flag.set(WRITING);
+        }
         self.state.set(State::MutLocked);
 
         unsafe { &mut *self.data.get() }
