@@ -6,7 +6,7 @@
 
 extern crate cortex_m_rtfm as rtfm;
 extern crate cortex_m_semihosting as semihosting;
-extern crate f3;
+extern crate f4;
 
 use core::fmt::Write;
 
@@ -15,7 +15,7 @@ use semihosting::hio;
 
 // TASKS & RESOURCES
 app! {
-    device: f3::stm32f30x,
+    device: f4::stm32f429,
 }
 
 // INITIALIZATION PHASE

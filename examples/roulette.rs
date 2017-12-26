@@ -5,21 +5,22 @@
 #![no_std]
 
 extern crate cast;
-extern crate f3;
+extern crate f4;
 extern crate cortex_m;
 extern crate cortex_m_rtfm as rtfm;
 
 use cast::{usize, u8};
 use cortex_m::peripheral::SystClkSource;
-use f3::led::{self, LEDS};
+use f4::led::{self, LEDS};
+use f4::frequency;
 use rtfm::{app, Threshold};
 
 // CONFIGURATION
-const DIVISOR: u32 = 4;
+const DIVISOR: u32 = 16;
 
 // TASKS & RESOURCES
 app! {
-    device: f3::stm32f30x,
+    device: f4::stm32f429,
 
     resources: {
         static STATE: u8 = 0;
@@ -35,10 +36,11 @@ app! {
 
 // INITIALIZATION PHASE
 fn init(p: init::Peripherals, _r: init::Resources) {
-    led::init(p.GPIOE, p.RCC);
+    led::init(p.GPIOG, p.RCC);
+    frequency::init(p.RCC, p.PWR, p.FLASH);
 
     p.SYST.set_clock_source(SystClkSource::Core);
-    p.SYST.set_reload(8_000_000 / DIVISOR);
+    p.SYST.set_reload(168_000_000 / DIVISOR);
     p.SYST.enable_interrupt();
     p.SYST.enable_counter();
 }
