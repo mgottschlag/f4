@@ -17,8 +17,8 @@ use cast::u16;
 use hal;
 use nb;
 use static_ref::Static;
-use stm32f30x::{gpioa, DMA1, USART1, usart1, GPIOA,
-                  RCC};
+use stm32f429::{gpioa, DMA1, USART1, usart6, GPIOA,
+                RCC};
 
 use dma::{self, Buffer, Dma1Channel4, Dma1Channel5};
 
@@ -26,7 +26,7 @@ use dma::{self, Buffer, Dma1Channel4, Dma1Channel5};
 pub type Result<T> = ::core::result::Result<T, nb::Error<Error>>;
 
 /// IMPLEMENTATION DETAIL
-pub unsafe trait Usart: Deref<Target = usart1::RegisterBlock> {
+pub unsafe trait Usart: Deref<Target = usart6::RegisterBlock> {
     /// IMPLEMENTATION DETAIL
     type GPIO: Deref<Target = gpioa::RegisterBlock>;
     /// IMPLEMENTATION DETAIL
@@ -117,15 +117,15 @@ where
 
         // power up peripherals
         if dma1.is_some() {
-            rcc.ahbenr.modify(|_, w| w.dmaen().enabled());
+            rcc.ahb1enr.modify(|_, w| w.dma1en().enabled());
         }
         if usart.get_type_id() == TypeId::of::<USART1>() {
             rcc.apb2enr.modify(|_, w| {
-                w.usart1en().enabled()
+                w.usart1en().set_bit()
             });
         }
 
-        rcc.ahbenr.modify(|_, w| w.iopaen().set_bit());
+        rcc.ahb1enr.modify(|_, w| w.gpioaen().enabled());
 
         if usart.get_type_id() == TypeId::of::<USART1>() {
             // PA9. = TX, PA10 = RX
@@ -153,9 +153,9 @@ where
                 // dir: Transfer from memory to peripheral
                 // tceie: Transfer complete interrupt enabled
                 // en: Disabled
-                dma1.ccr4.write(|w| unsafe {
-                    w.mem2mem()
-                        .clear_bit()
+                dma1.s4cr.write(|w| unsafe {
+                    w.dir()
+                        .bits(0b01)
                         .pl()
                         .bits(0b01)
                         .msize()
@@ -168,8 +168,6 @@ where
                         .clear_bit()
                         .pinc()
                         .clear_bit()
-                        .dir()
-                        .set_bit()
                         .tcie()
                         .set_bit()
                         .en()
@@ -187,9 +185,9 @@ where
                 // dir: Transfer from peripheral to memory
                 // tceie: Transfer complete interrupt enabled
                 // en: Disabled
-                dma1.ccr5.write(|w| unsafe {
-                    w.mem2mem()
-                        .clear_bit()
+                dma1.s5cr.write(|w| unsafe {
+                    w.dir()
+                        .bits(0b00)
                         .pl()
                         .bits(0b01)
                         .msize()
@@ -201,8 +199,6 @@ where
                         .circ()
                         .clear_bit()
                         .pinc()
-                        .clear_bit()
-                        .dir()
                         .clear_bit()
                         .tcie()
                         .set_bit()
@@ -283,7 +279,7 @@ where
 
     fn read(&self) -> Result<u8> {
         let usart1 = self.0;
-        let sr = usart1.isr.read();
+        let sr = usart1.sr.read();
 
         if sr.ore().bit_is_set() {
             Err(nb::Error::Other(Error::Overrun))
@@ -295,7 +291,7 @@ where
             // NOTE(read_volatile) the register is 9 bits big but we'll only
             // work with the first 8 bits
             Ok(unsafe {
-                ptr::read_volatile(&usart1.rdr as *const _ as *const u8)
+                ptr::read_volatile(&usart1.dr as *const _ as *const u8)
             })
         } else {
             Err(nb::Error::WouldBlock)
@@ -311,7 +307,7 @@ where
 
     fn write(&self, byte: u8) -> Result<()> {
         let usart1 = self.0;
-        let sr = usart1.isr.read();
+        let sr = usart1.sr.read();
 
         if sr.ore().bit_is_set() {
             Err(nb::Error::Other(Error::Overrun))
@@ -322,7 +318,7 @@ where
         } else if sr.txe().bit_is_set() {
             // NOTE(write_volatile) see NOTE in the `read` method
             unsafe {
-                ptr::write_volatile(&usart1.tdr as *const _ as *mut u8, byte)
+                ptr::write_volatile(&usart1.dr as *const _ as *mut u8, byte)
             }
             Ok(())
         } else {
@@ -348,19 +344,19 @@ impl<'a> Serial<'a, USART1> {
     {
         let usart1 = self.0;
 
-        if dma1.ccr5.read().en().bit_is_set() {
+        if dma1.s5cr.read().en().bit_is_set() {
             return Err(dma::Error::InUse);
         }
 
         let buffer: &mut [u8] = buffer.lock_mut();
 
-        dma1.cndtr5
+        dma1.s5ndtr
             .write(|w| unsafe { w.ndt().bits(u16(buffer.len()).unwrap()) });
-        dma1.cpar5
-            .write(|w| unsafe { w.bits(&usart1.rdr as *const _ as u32) });
-        dma1.cmar5
+        dma1.s5par
+            .write(|w| unsafe { w.bits(&usart1.dr as *const _ as u32) });
+        dma1.s5m0ar
             .write(|w| unsafe { w.bits(buffer.as_ptr() as u32) });
-        dma1.ccr5.modify(|_, w| w.en().set_bit());
+        dma1.s5cr.modify(|_, w| w.en().set_bit());
 
         Ok(())
     }
@@ -379,19 +375,19 @@ impl<'a> Serial<'a, USART1> {
     {
         let usart1 = self.0;
 
-        if dma1.ccr4.read().en().bit_is_set() {
+        if dma1.s4cr.read().en().bit_is_set() {
             return Err(dma::Error::InUse);
         }
 
         let buffer: &[u8] = buffer.lock();
 
-        dma1.cndtr4
+        dma1.s4ndtr
             .write(|w| unsafe { w.ndt().bits(u16(buffer.len()).unwrap()) });
-        dma1.cpar4
-            .write(|w| unsafe { w.bits(&usart1.tdr as *const _ as u32) });
-        dma1.cmar4
+        dma1.s4par
+            .write(|w| unsafe { w.bits(&usart1.dr as *const _ as u32) });
+        dma1.s4m0ar
             .write(|w| unsafe { w.bits(buffer.as_ptr() as u32) });
-        dma1.ccr4.modify(|_, w| w.en().set_bit());
+        dma1.s4cr.modify(|_, w| w.en().set_bit());
 
         Ok(())
     }

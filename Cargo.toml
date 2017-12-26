@@ -1,13 +1,13 @@
 [package]
 authors = ["Jorge Aparicio <jorge@japaric.io>"]
 categories = ["asynchronous", "embedded", "hardware-support", "no-std"]
-description = "Board Support Crate for the STM32F3DISCOVERY"
+description = "Board Support Crate for the STM32F4DISCOVERY"
 documentation = "https://docs.rs/f3"
 keywords = ["arm", "cortex-m", "stm32"]
 license = "MIT OR Apache-2.0"
-name = "f3"
-repository = "https://github.com/japaric/f3"
-version = "0.5.0"
+name = "f4"
+repository = "https://github.com/mgottschlag/f4"
+version = "0.1.0"
 
 [dependencies]
 static-ref = "0.2.0"
@@ -23,9 +23,9 @@ rev = "7d904f515d15fd5fe7ea34e18820ea83e2651fa2"
 [dependencies.nb]
 git = "https://github.com/japaric/nb"
 
-[dependencies.stm32f30x]
+[dependencies.stm32f429]
 features = ["rt"]
-version = "0.5.0"
+git = "https://github.com/mgottschlag/stm32f429"
 
 [dev-dependencies]
 cortex-m = "0.3.0"

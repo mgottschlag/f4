@@ -30,7 +30,7 @@ extern crate embedded_hal as hal;
 extern crate nb;
 extern crate static_ref;
 
-pub extern crate stm32f30x;
+pub extern crate stm32f429;
 
 // For documentation only
 pub mod examples;

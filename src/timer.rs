@@ -3,7 +3,7 @@
 use core::u16;
 
 use cast::{u16, u32};
-use stm32f30x::{RCC, TIM7};
+use stm32f429::{RCC, TIM7};
 
 /// Specialized `Result` type
 pub type Result<T> = ::core::result::Result<T, Error>;
